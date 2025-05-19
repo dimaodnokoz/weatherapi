@@ -4,6 +4,7 @@ FROM php:8.2.18-fpm-alpine
 # Install necessary dependencies BEFORE installing PHP extensions
 RUN apk add --no-cache --update \
     libpng-dev \
+    libjpeg-turbo-dev \
     libzip-dev \
     libexif-dev \
     mysql-client \
@@ -21,20 +22,17 @@ RUN apk add --no-cache --update git unzip
 # Створюємо робочу директорію для нашого Laravel-проекту
 WORKDIR /var/www
 
-# Копіюємо файли нашого Laravel-проекту в контейнер
+# Copy the application code FIRST
 COPY . /var/www
 
 # Встановлюємо залежності Composer
 RUN composer install --no-dev --optimize-autoloader
 
-# Копіюємо файли конфігурації Laravel (може знадобитися окремо, якщо є)
-COPY .env.example .env
-
 # Генеруємо ключ застосунку Laravel
 RUN php artisan key:generate
 
 # Запускаємо міграції бази даних (якщо потрібно при кожному запуску контейнера)
-RUN sleep 5 && php artisan migrate --force
+#RUN php artisan migrate --force
 
 # Вказуємо користувача для виконання Artisan команд
 USER www-data
