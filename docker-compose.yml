@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: weatherapi-app-docker-image  # Назва твого Docker-образу
+        container_name: wetherapi-app-container
+        restart: unless-stopped
+        #environment:
+        #    - APP_NAME=${APP_NAME:-Laravel}
+        env_file:
+            - .env # замість вказувати в розділі environment всі змінні середовища, просто вказуємо читати їх з файла
+        volumes:
+            #- .env:/var/www/.env # можна ще замість environment і env_file копіювати файл всередину контейнера
+            - .:/var/www  # Монтуємо локальну директорію з кодом у контейнер
+        ports:
+            - 8000:80  # Прокидаємо порт 8000 з хоста на порт 80 контейнера (для веб-сервера)
+        depends_on:
+            - mysql
+
+    mysql:
+        image: mysql:8.0
+        container_name: mysql-db
+        restart: unless-stopped
+        environment:
+            MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+            MYSQL_DATABASE: ${DB_DATABASE}
+            MYSQL_USER: ${DB_USERNAME}
+            MYSQL_PASSWORD: ${DB_PASSWORD}
+        ports:
+            - 3306:3306
+        volumes:
+            - mysql_data:/var/lib/mysql
+
+volumes:
+    mysql_data:

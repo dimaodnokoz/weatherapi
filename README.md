@@ -193,3 +193,45 @@ pgrep -f "queue:work" > /dev/null || php /path-to-project/artisan queue:work
 На локалці протестовано за допомогою php artisan queue:work, php artisan schedule:work і з everyMinute для scheduler.
 
 ## Docker і deploy
+### Сетап
+Встановлюю Docker Engine (28.1.1) та Docker Compose (v2.35.1-desktop.1) на локалку - для MacOs встановлюються в рамках
+[Docker desktop](https://www.docker.com/products/docker-desktop/). Доставив ще так
+```
+brew install docker-compose
+```
+### Наступні команди виконую через термінал в корені проекту
+Зібрати Docker образи
+```
+docker compose build
+```
+Запустити контейнери (тепер апка працюватиме всередині одного, а MySQL - іншого контейнерів )
+```
+docker-compose up -d
+```
+#### Якщо мінявся код або Dockerfile, то
+Перезбірати Docker-образи
+```
+docker-compose build --no-cache
+```
+Перезапустити контейнери
+```
+docker-compose down
+docker-compose up -d
+```
+### Інше
+Доступ до апки на локалці
+```
+http://localhost:8000
+```
+Виконання команд в контейнері
+```
+docker-compose exec app php artisan migrate
+```
+app тут — це назва сервісу (контейнера) з docker-compose.yml
+
+>Я розумію важливість ховати дані з .env файла, але заради економії часу зробив наступне. Мій .env.example містить те саме, 
+що й .env. В Dockerfile є команда копіювати .env.example в .env, а docker-compose бере всі змінні з .env файлу через
+директиву env_file. Звісно, для проду так робити не ок.
+
+>Також в Dockerfile треба додати запуск cron і cron таблицю з інструкціями для нього (cron потрібен для розсилок - 
+для роботи worker і scheduler). Теж не всигаю це зробити.
