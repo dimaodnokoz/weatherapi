@@ -1,31 +1,31 @@
-version: '3.8'
-
 services:
     app:
         build:
             context: .
             dockerfile: Dockerfile
+        depends_on:
+            - mysql
         image: weatherapi-app-docker-image  # Назва твого Docker-образу
         container_name: wetherapi-app-container
         restart: unless-stopped
-        #environment:
-        #    - APP_NAME=${APP_NAME:-Laravel}
         env_file:
             - .env # замість вказувати в розділі environment всі змінні середовища, просто вказуємо читати їх з файла
+            #- .env.override # may be used to override vars from .env
+        environment:
+            DB_HOST: mysql # Overrides DB_HOST from .env, as it should be the name MySQL service, declared below
+            DB_PORT: 3306 # Override DB_PORT from .env, as it should be the same as in MySQL service, declared below (that one from right?)
         volumes:
             #- .env:/var/www/.env # можна ще замість environment і env_file копіювати файл всередину контейнера
             - .:/var/www  # Монтуємо локальну директорію з кодом у контейнер
         ports:
             - 8000:80  # Прокидаємо порт 8000 з хоста на порт 80 контейнера (для веб-сервера)
-        depends_on:
-            - mysql
 
     mysql:
         image: mysql:8.0
         container_name: mysql-db
         restart: unless-stopped
         environment:
-            MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+            MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-secret} # is for configuring the MySQL server's root (this is username) user password when the Docker container starts
             MYSQL_DATABASE: ${DB_DATABASE}
             MYSQL_USER: ${DB_USERNAME}
             MYSQL_PASSWORD: ${DB_PASSWORD}

@@ -1,8 +1,16 @@
 # Беремо готовий образ PHP 8.1 з Alpine Linux (легка ОС)
 FROM php:8.2.18-fpm-alpine
 
-# Встановлюємо необхідні розширення PHP
-#RUN docker-php-ext-install pdo pdo_mysql bcmath gd zip exif
+# Install necessary dependencies BEFORE installing PHP extensions
+RUN apk add --no-cache --update \
+    libpng-dev \
+    libzip-dev \
+    libexif-dev \
+    mysql-client \
+    mysql-dev
+
+# Install PHP extensions
+RUN docker-php-ext-install pdo pdo_mysql bcmath gd zip exif
 
 # Встановлюємо Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
@@ -26,7 +34,7 @@ COPY .env.example .env
 RUN php artisan key:generate
 
 # Запускаємо міграції бази даних (якщо потрібно при кожному запуску контейнера)
-RUN php artisan migrate --force
+RUN sleep 5 && php artisan migrate --force
 
 # Вказуємо користувача для виконання Artisan команд
 USER www-data

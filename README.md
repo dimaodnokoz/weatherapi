@@ -206,17 +206,18 @@ docker compose build
 ```
 Запустити контейнери (тепер апка працюватиме всередині одного, а MySQL - іншого контейнерів )
 ```
-docker-compose up -d
+docker compose up -d
 ```
 #### Якщо мінявся код або Dockerfile, то
 Перезбірати Docker-образи
 ```
-docker-compose build --no-cache
+docker compose build --no-cache
 ```
 Перезапустити контейнери
 ```
-docker-compose down
-docker-compose up -d
+docker compose down
+docker compose up -d
+docker compose ps # check status after prev command
 ```
 ### Інше
 Доступ до апки на локалці
@@ -225,13 +226,20 @@ http://localhost:8000
 ```
 Виконання команд в контейнері
 ```
-docker-compose exec app php artisan migrate
+docker compose exec app php artisan migrate
 ```
 app тут — це назва сервісу (контейнера) з docker-compose.yml
 
+Test Connectivity (If Containers are Running)
+```
+docker compose exec app ping mysql
+```
+
 >Я розумію важливість ховати дані з .env файла, але заради економії часу зробив наступне. Мій .env.example містить те саме, 
 що й .env. В Dockerfile є команда копіювати .env.example в .env, а docker-compose бере всі змінні з .env файлу через
-директиву env_file. Звісно, для проду так робити не ок.
+директиву env_file (замінюю лиш DB_HOST, DB_PORT на ті, що вказуються для SQL service в yml). Звісно, для проду так
+робити не ок. Отже, перед збіркою контейнера для прода потрібно апдейтнути .env.example, вказавши там відповідний
+APP_URL та APP_ENV=production.
 
 >Також в Dockerfile треба додати запуск cron і cron таблицю з інструкціями для нього (cron потрібен для розсилок - 
 для роботи worker і scheduler). Теж не всигаю це зробити.
