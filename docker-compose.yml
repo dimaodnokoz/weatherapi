@@ -2,45 +2,66 @@ services:
     app:
         build:
             context: .
-            dockerfile: Dockerfile
-        depends_on:
-            - mysql
-        image: weatherapi-app-docker-image  # Docker-image name
-        container_name: weatherapi-app-container
+            dockerfile: docker/app/Dockerfile
+        image: weatherapi-app
+        container_name: app-container
         restart: unless-stopped
         env_file:
-            - .env # замість вказувати в розділі environment всі змінні середовища, просто вказуємо читати їх з файла (файл не в контенері, а там же, де docker-compose.yml, на проді має бути створений і заповнений, так як не копіюється з локалки )
-            #- .env.override # may be used to override vars from .env
-        environment:
-            DB_HOST: mysql # Overrides DB_HOST from .env, as it should be the name MySQL service, declared below
-            DB_PORT: 3306 # Override DB_PORT from .env, as it should be the same as in MySQL service, declared below (that one from right?)
+            - .env # instead of listing all variables, just read them from .env on host machine, the same place as docker-compose.yml
+            #- .env.override # overrides (as used lower in list) the vars for db access
+        environment: # override values from env_file: because oh higher presidency
+            DB_HOST: ${DOCKER_MYSQL_DB_HOST}
+            DB_PORT: ${DOCKER_MYSQL_DB_PORT}
+            DB_DATABASE: ${DOCKER_MYSQL_DATABASE}
+            DB_USERNAME: ${DOCKER_MYSQL_USERNAME}
+            DB_PASSWORD: ${DOCKER_MYSQL_PASSWORD}
+            MYSQL_ROOT_PASSWORD: ${DOCKER_MYSQL_ROOT_PASSWORD}
+        expose: # indicates that port 9000 of app container should be available for services in the same inner docker network (allows Nginx to communicate with PHP-FPM on app:9000, port not published on host machine)
+            - 9000
         volumes:
-            #- .env:/var/www/.env # можна ще замість environment і env_file копіювати файл всередину контейнера
-            - .:/var/www  # Монтуємо локальну директорію з кодом у контейнер
-        ports:
-            - 8000:80  # Прокидаємо порт 8000 з хоста на порт 80 контейнера (для веб-сервера)
+            - .:/var/www  # mounts project dir on host machine to /var/www dir in container, including .env file (but it is not a problem, because of priorities env_file: > environment: > .env)
         networks:
-            - my_network
+            - my_network # explicitly declares docker inner network
+        depends_on:
+            - mysql
+
+    nginx:
+        image: nginx:stable-alpine # official Nginx image on base of Alpine
+        container_name: nginx-container
+        restart: unless-stopped
+        ports:
+            - "80:80" # maps port 80 of host machine to port 80 of container for HTTP
+            - "443:443" # for HTTPS
+        volumes:
+            - .:/var/www # mounts the same project dir to /var/www dir in Nginx container to let it read static files
+            - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf # mounts Nginx conf file into container
+        networks:
+            - my_network # explicitly declares docker inner network
+        depends_on:
+            - app # Nginx depends on PHP-FPM (should be started after it)
 
     mysql:
         image: mysql:8.0
-        container_name: mysql-db-container
-        restart: unless-stopped
+        container_name: mysql-container
+        restart: always
         environment:
-            MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-secret} # is for configuring the MySQL server's root (this is username) user password when the Docker container starts
-            MYSQL_DATABASE: ${DB_DATABASE}
-            MYSQL_USER: ${DB_USERNAME}
-            MYSQL_PASSWORD: ${DB_PASSWORD}
+            MYSQL_ROOT_PASSWORD: ${DOCKER_MYSQL_ROOT_PASSWORD}
+            MYSQL_DATABASE: ${DOCKER_MYSQL_DATABASE}
+            MYSQL_USER: ${DOCKER_MYSQL_USERNAME}
+            MYSQL_PASSWORD: ${DOCKER_MYSQL_PASSWORD}
         ports:
-            - 3306:3306
+            - "3306:3306"
+        volumes:
+            - mysql_data:/var/lib/mysql # mounts ephemeral mysql_data volume on host machine to /var/lib/mysql (all mysql data) in container to keep it even when container is removed or restarted
         networks:
             - my_network
-        volumes:
-            - mysql_data:/var/lib/mysql
 
 networks:
     my_network:
         driver: bridge
 
+# Docker decides where to store it in on host machine
+# Cooperation based on optimized docker file system
+# Docker controls life cycle of volumes
 volumes:
-    mysql_data:
+    mysql_data: # find or create ephemeral volume on host machine

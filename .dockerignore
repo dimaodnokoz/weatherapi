@@ -1,0 +1,6 @@
+.git/
+.gitignore
+.env
+vendor/ # If 'composer install' is called inside container
+storage/logs/*.log
+.DS_Store

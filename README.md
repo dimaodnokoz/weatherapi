@@ -192,68 +192,87 @@ pgrep -f "queue:work" > /dev/null || php /path-to-project/artisan queue:work
 ```
 На локалці протестовано за допомогою php artisan queue:work, php artisan schedule:work і з everyMinute для scheduler.
 
-## Docker і deploy
+## Docker and deploy
 ### Сетап
-Встановлюю Docker Engine (28.1.1) та Docker Compose (v2.35.1-desktop.1) на локалку - для MacOs встановлюються в рамках
+Встановлюю Docker Engine та Docker Compose на локалку - для MacOs встановлюються в рамках
 [Docker desktop](https://www.docker.com/products/docker-desktop/). Доставив ще так
 ```
 brew install docker-compose
 ```
+#### Додаю в проект нові файли
+Буде 3 контейнери: app (php-fpm), ngynx, mysql і скрипт entrypoint.sh для app.
+Директорію проекту не копіюю в контейнер, роблю bing mount для app і ngynx.
+.env і ще дещо не копіюю в контейнер (див .dockerignore).
+В entrypoint.sh за допомогою "mysqladmin ping" чекаю, доки підніметься mysql, і виконую міграції.
+
+./docker/app
+- Dockerfile
+- entrypoint.sh
+
+. (root)
+- docker-compose.yml
+- .dockerignore
+- .env (оновлюю для роботи з Docker)
+
+./docker/ngynx
+- nginx.conf (server_name -> localhost)
+
 ### Наступні команди виконую через термінал в корені проекту
-Зібрати Docker образи
+Зібрати Docker образ для app (інші 2 використовую стандартні)
 ```
 docker compose build
 ```
-Запустити контейнери (тепер апка працюватиме всередині одного, а MySQL - іншого контейнерів )
+Зібрати і запустити контейнери
 ```
 docker compose up -d
 ```
+
+Після цього тест можна починати з браузера: http://localhost/subscribe
+
 #### Якщо мінявся код або Dockerfile, то
 Перезбірати Docker-образи
 ```
 docker compose build --no-cache
 ```
-Перезапустити контейнери
+Перезапустити контейнери начисто
 ```
-docker compose down
+docker compose down -v
 docker compose up -d
 ```
-> Виконати docker compose build з апуском міграції не вдалося. Тому вирішив виконати міграцію вже в контейнерах.
-Контейнери зібрав і запустив, але виконання міграції не виходить. Ресерч показав, що mysql сервіс постійно випадає 
-з мережі з app, при чому команда діагностики мережі при постійному перезапуску час від часу бачить цей контейнер, 
-при тому, що контейнер app бачить завжди. Цю проблему вирішити так і не вдалося.
 ### Інше
-Доступ до апки на локалці
-```
-http://localhost:8000
-```
 Виконання команд в контейнері
 ```
 docker compose exec app php artisan migrate --force
 ```
 app тут — це назва сервісу (контейнера) з docker-compose.yml
 
-Test connectivity (if containers are running)
+Перевірити, чи встановлено звязок контейнерів app і mysql після запуску
 ```
 docker compose exec app ping mysql
 ```
-Check containers status (if containers are running)
+Перевірити статус контейнерів, якщо запущені
 ```
 docker compose ps
 ```
-Check containers in one network
+Перевірити чи є контейнери в оній внутрішній мережі Докера
 ```
 docker network inspect weatherapi_my_network # weatherapi - app dir name (auto prefix), my_network - network name from yml
 ```
-Check .env file in container
+Перевірити змінні оточення контейнера
 ```
-docker compose exec app cat .env
+docker compose exec app printenv
 ```
->Стосовно .env. В docker-compose.yml читаю значення змінних з файлу .env, який лежить поряд з ним, через
-директиву env_file (замінюю лиш DB_HOST, DB_PORT на ті, що вказуються для SQL service в yml). Сам .env в контенер
-не копіюю, так як змінни вже призначені. Отже перед збіркою контейнерів на проді треба спершу апдейтнути .env.
-Я розумію важливість ховати дані з .env файла, але заради економії часу просто зробив .env.example копією .env для github.
-Звісно, для реальних проектів так робити не ок.
+Перевірити логи контейнера
+```
+docker compose logs app
+```
+>Стосовно .env. В docker-compose.yml читаю значення змінних з файлу .env, який лежить поряд з ним на хост машині, через
+директиву env_file (замінюю лиш DB_HOST, DB_PORT і тд на ті, що вказую для mysql в yml). Сам .env в контейнер не копіюю
+(додав в .dockerignore), так як змінні вже призначені. 
+
+>Враховуючи, що .env в github не додаю, то перед збіркою контейнерів треба спершу створити .env з .env.example і
+відповідно апдейтнути його. Я розумію важливість ховати дані з .env файла, але заради економії
+часу просто зробив .env.example копією мого .env для github. Звісно, для реальних проектів так робити не ок.
 
 >Також в Dockerfile треба додати запуск cron і cron таблицю з інструкціями для нього (cron потрібен для розсилок - 
-для роботи worker і scheduler). Теж не всигаю це зробити.
+для роботи worker і scheduler). Це не встиг зробити.
